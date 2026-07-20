@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hanzi Stroke Order Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* 浅灰色背景 */
+        }
+        .hanzi-character-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 8px; /* 字符块之间的间距 */
+            border: 1px solid #e2e8f0; /* 浅边框 */
+            border-radius: 0.5rem; /* 圆角 */
+            background-color: #ffffff; /* 每个字符框的白色背景 */
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* 细微阴影 */
+            cursor: pointer; /* 指示字符可点击 */
+            transition: transform 0.1s ease-in-out; /* 平滑悬停效果 */
+            padding-bottom: 8px; /* 拼音的内边距 */
+        }
+        .hanzi-character-wrapper:hover {
+            transform: translateY(-2px); /* 悬停时轻微上浮 */
+        }
+        .hanzi-writer-svg {
+            width: 100px; /* 每个汉字 SVG 的固定宽度 */
+            height: 100px; /* 每个汉字 SVG 的固定高度 */
+            position: relative; /* 对于定位网格和 HanziWriter 内容至关重要 */
+            overflow: hidden; /* 确保内容在边界内 */
+        }
+        .nonhanzi-writer-svg {
+            width: 50px; /* 每个汉字 SVG 的固定宽度 */
+            height: 100px; /* 每个汉字 SVG 的固定高度 */
+            position: relative; /* 对于定位网格和 HanziWriter 内容至关重要 */
+            overflow: hidden; /* 确保内容在边界内 */
+        }
+        .hanzi-writer-content-target {
+            position: absolute;
+            inset: 0; /* top:0; right:0; bottom:0; left:0; */
+            width: 100%;
+            height: 100%;
+            z-index: 10; /* 确保 HanziWriter 绘制在网格之上 */
+        }
+        .grid-background-svg {
+            position: absolute;
+            inset: 0; /* top:0; right:0; bottom:0; left:0; */
+            width: 100%;
+            height: 100%;
+            z-index: 0; /* 确保网格在 HanziWriter 内容之下 */
+        }
+        .pinyin-display {
+            font-size: 0.875rem; /* text-sm */
+            color: #4a5568; /* text-gray-700 */
+            margin-top: 4px; /* SVG 和拼音之间的间距 */
+            font-weight: 600; /* 半粗体 */
+            text-decoration: none; /* 移除链接下划线 */
+            white-space: pre-wrap; /* 关键：这使得 \n 创建新行 */
+            text-align: center; /* 如果文本分两行，则居中对齐 */
+        }
+        .pinyin-display:hover {
+            text-decoration: underline; /* 悬停时添加下划线 */
+            color: #2563eb; /* 悬停时将颜色更改为更亮的蓝色 */
+        }
+        .summary-text {
+            font-size: 1.125rem; /* text-lg */
+            font-weight: 500; /* 中等粗细 */
+            color: #334155; /* slate-700 */
+            margin-top: 16px; /* mt-4 */
+            padding: 8px 0;
+            border-top: 1px solid #e2e8f0;
+        }
+        .summary-pinyin {
+            font-size: 1rem; /* text-base */
+            color: #475569; /* slate-600 */
+            margin-bottom: 16px; /* mb-4 */
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-4xl w-full bg-white p-8 rounded-xl shadow-lg">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">
+            Hanzi Stroke Order Visualizer
+        </h1>
+
+        <div class="mb-6">
+            <label for="hanziInput" class="block text-lg font-medium text-gray-700 mb-2">
+                Type Chinese characters here:
+            </label>
+            <input
+                type="text"
+                id="hanziInput"
+                placeholder="e.g., 你好世界"
+                class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-base rounded-lg"
+            />
+        </div>
+
+        <button
+            id="visualizeButton"
+            class="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-150 ease-in-out font-semibold text-lg shadow-md rounded-lg"
+        >
+            Visualize Strokes
+        </button>
+		
+        <!-- New sections for displaying original text and full pinyin -->
+        <div id="originalTextDisplay" class="summary-text text-center"></div>
+        <!--<div id="fullPinyinDisplay" class="summary-pinyin text-center"></div>-->
+		<div id="fulltextDisplay" class="summary-pinyin text-center" style="font-size: 200%"></div>
+        <!-- End of new sections -->
+		
+        <div id="hanziOutput" class="mt-8 flex flex-wrap justify-center">
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3.5/dist/hanzi-writer.min.js"></script>
+	<script src="https://unpkg.com/pinyin-pro"></script>
+    <script>
+		var { pinyin,html } = pinyinPro;
+		
+        function createGridSvgElement() {
+            const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            svg.setAttribute("width", "100");
+            svg.setAttribute("height", "100");
+            svg.setAttribute("viewBox", "0 0 100 100");
+            svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+            svg.classList.add('grid-background-svg'); // 应用 CSS 进行定位和 z-index
+
+            const lines = [
+                { x1: "0", y1: "0", x2: "100", y2: "100" },
+                { x1: "100", y1: "0", x2: "0", y2: "100" },
+                { x1: "50", y1: "0", x2: "50", y2: "100" },
+                { x1: "0", y1: "50", x2: "100", y2: "50" }
+            ];
+
+            lines.forEach(coords => {
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                for (const attr in coords) {
+                    line.setAttribute(attr, coords[attr]);
+                }
+                line.setAttribute("stroke", "#DDD");
+                line.setAttribute("stroke-width", "1");
+                svg.appendChild(line);
+            });
+            return svg;
+        }
+		
+        // Ensure the DOM is fully loaded before running the script
+        document.addEventListener('DOMContentLoaded', () => {
+            // Get references to the HTML elements
+            const hanziInput = document.getElementById('hanziInput');
+            const visualizeButton = document.getElementById('visualizeButton');
+            const hanziOutput = document.getElementById('hanziOutput');
+			
+            //const originalTextDisplay = document.getElementById('originalTextDisplay'); // New reference
+            //const fullPinyinDisplay = document.getElementById('fullPinyinDisplay');     // New reference
+			const fulltextDisplay = document.getElementById('fulltextDisplay');
+
+            // Function to visualize the Hanzi characters
+            const visualizeHanzi = () => {
+                // Clear any previously displayed characters
+                hanziOutput.innerHTML = '';
+
+                // Get the text from the input field
+                const text = hanziInput.value.trim();
+
+                // If the input is empty, do nothing
+                if (!text) {
+                    return;
+                }
+				
+				fulltextDisplay.innerHTML = html(text);
+				/*
+				originalTextDisplay.textContent = `${text}`;
+				fullPinyinDisplay.textContent = `${pinyin(text)}`;
+				*/
+
+                // Loop through each character in the input text
+                for (let i = 0; i < text.length; i++) {
+                    const char = text[i];
+                    let pinyin_str = '';
+					let isChineseChar = false;
+					let element_class = 'hanzi-writer-svg';
+
+                    // Use tiny-pinyin to convert character to pinyin
+                    // Check if Pinyin is defined before using it
+                    if (typeof pinyin !== 'undefined' ) {
+                        pinyin_str = pinyin(char);
+                        // Check if removing non-Chinese characters results in an empty string
+                        const removedNonZh = pinyin(char, { nonZh: 'removed' });
+                        isChineseChar = removedNonZh !== '';
+						if (!isChineseChar) {element_class = 'nonhanzi-writer-svg';}
+                    } else {
+                        // If Pinyin is not defined or char is not Chinese, display the character itself
+                        pinyin_str = char;
+						element_class = 'nonhanzi-writer-svg';
+                    }
+					
+					// If it's not a Chinese character, skip HanziWriter and its related elements
+					//if (!isChineseChar) {continue}
+
+                    // Create a wrapper div for each character (SVG + Pinyin)
+                    const charWrapper = document.createElement('div');
+                    charWrapper.classList.add('hanzi-character-wrapper'); // Apply styling for the whole block
+					
+					const charContainer = document.createElement('div');
+                    charContainer.classList.add(element_class);  // This class has `position: relative`
+
+                    const hanziWriterContentTarget = document.createElement('div');
+                    const hanziWriterContentTargetId = `hanzi-writer-target-${i}`; // Unique ID for HanziWriter
+                    hanziWriterContentTarget.id = hanziWriterContentTargetId;
+                    hanziWriterContentTarget.classList.add('hanzi-writer-content-target'); // Positioned on top
+                    charContainer.appendChild(hanziWriterContentTarget);
+					
+                    // Add the grid SVG as the first child of charContainer
+                    const gridSvg = createGridSvgElement();
+                    charContainer.insertBefore(gridSvg, hanziWriterContentTarget); // Insert before the content target
+
+                    charWrapper.appendChild(charContainer); // Append the main character container to the wrapper
+
+                    // Append the entire wrapper to the output area (before HanziWriter.create)
+                    hanziOutput.appendChild(charWrapper);
+					
+                    // Create the div for Pinyin display
+                    const pinyinDisplay = document.createElement('a');
+                    pinyinDisplay.classList.add('pinyin-display');
+					if (isChineseChar) {
+						pinyinDisplay.textContent = `📖${char} - ${pinyin_str}`;
+						pinyinDisplay.href = `https://www.archchinese.com/chinese_english_dictionary.html?find=${char}`;
+						pinyinDisplay.target = '_blank'; // Open in a new tab
+						}
+					else{
+						pinyinDisplay.textContent = `${char}`;
+					}
+                    charWrapper.appendChild(pinyinDisplay);
+
+                    // Append the whole wrapper to the output area
+                    hanziOutput.appendChild(charWrapper);
+
+                    // Initialize HanziWriter for the current character
+                    // HanziWriter only works for actual Hanzi characters, so we check
+                    if (typeof HanziWriter !== 'undefined' && isChineseChar) {
+                        const writer = HanziWriter.create(hanziWriterContentTargetId, char, {
+                            width: 100, // Width of the SVG canvas
+                            height: 100, // Height of the SVG canvas
+                            padding: 5, // Padding around the character within the SVG
+                            showOutline: true, // Show a faded outline of the character
+                            outlineColor: '#E0E0E0', // Light gray outline
+                            strokeColor: '#3366CC', // Blue color for strokes
+                            radicalColor: '#685580', // purple for radical
+                            drawingColor: '#CC3366', // Red color when drawing manually (not used in this example)
+                            highlightColor: '#FFD700', // Gold color for highlighting (not used in this example)
+                            strokeAnimationSpeed: 2, // 5x normal speed (from previous version)
+                        });
+
+                        // Add a click event listener to the character wrapper (SVG + Pinyin)
+                        charWrapper.addEventListener('click', () => {
+                            writer.animateCharacter(); // Animate strokes when clicked
+                        });
+                    } else {
+                        // For non-Chinese characters or if HanziWriter isn't loaded, just display them without HanziWriter
+                        charContainer.innerHTML = `<div class="flex items-center justify-center w-full h-full text-xl text-gray-400">${char}</div>`;
+                        charContainer.style.border = '1px dashed #e2e8f0'; // Add a dashed border for non-Hanzi
+                    }
+                }
+            };
+
+            // Add event listener to the button
+            visualizeButton.addEventListener('click', visualizeHanzi);
+
+            // Optional: Allow pressing Enter key in the input field to trigger visualization
+            hanziInput.addEventListener('keypress', (event) => {
+                if (event.key === 'Enter') {
+                    visualizeHanzi();
+                }
+            });
+
+            // Visualize a default character on page load
+            hanziInput.value = '你好世界，我爱中国！'; // Added more characters for testing pinyin
+            visualizeHanzi();
+        });
+    </script>
+</body>
+</html>
