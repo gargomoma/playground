@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>Brújula</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  
+  :root {
+    --bg-gradient: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    --text-color: #fff;
+    --card-bg: rgba(255,255,255,0.1);
+    --accent: #f5a623;
+    --accent-glow: rgba(245,166,35,0.8);
+    --compass-bg: radial-gradient(circle, #1e3c4a 0%, #0f2027 100%);
+    --compass-border: rgba(255,255,255,0.2);
+    --degree-color: rgba(255,255,255,0.7);
+    --cardinal-n: #f5a623;
+    --cardinal-s: #ff6b6b;
+    --debug-bg: rgba(0,0,0,0.4);
+    --btn-bg: #f5a623;
+    --btn-text: #1a1a1a;
+    --btn-perm-bg: #51cf66;
+    --warn-bg: #ff6b6b;
+  }
+  
+  body.night-mode {
+    --bg-gradient: linear-gradient(135deg, #000000, #0a0a0a, #000000);
+    --text-color: #8b0000;
+    --card-bg: rgba(139,0,0,0.15);
+    --accent: #b22222;
+    --accent-glow: rgba(178,34,34,0.6);
+    --compass-bg: radial-gradient(circle, #0a0a0a 0%, #000000 100%);
+    --compass-border: rgba(139,0,0,0.4);
+    --degree-color: rgba(178,34,34,0.6);
+    --cardinal-n: #b22222;
+    --cardinal-s: #8b0000;
+    --debug-bg: rgba(139,0,0,0.1);
+    --btn-bg: #8b0000;
+    --btn-text: #ff6b6b;
+    --btn-perm-bg: #8b0000;
+    --warn-bg: #8b0000;
+  }
+  
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg-gradient);
+    color: var(--text-color);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 15px;
+    transition: background 0.3s ease, color 0.3s ease;
+  }
+  
+  .header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    max-width: 500px;
+    margin-bottom: 10px;
+  }
+  
+  .header-row h1 { font-size: 1.3rem; margin: 0; text-align: left; }
+  
+  .mode-switch {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--card-bg);
+    padding: 8px 12px;
+    border-radius: 20px;
+    backdrop-filter: blur(10px);
+  }
+  .mode-switch label { font-size: 0.85rem; cursor: pointer; user-select: none; }
+  
+  .switch {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.3s;
+  }
+  .switch::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    background: var(--accent);
+    border-radius: 50%;
+    transition: transform 0.3s;
+  }
+  .switch.active::after { transform: translateX(20px); }
+  
+  .warn {
+    background: var(--warn-bg); color: #fff; padding: 10px; border-radius: 8px;
+    width: 100%; max-width: 500px; margin-bottom: 10px; font-size: 0.9rem; display: none;
+  }
+  .search { display: flex; gap: 8px; width: 100%; max-width: 500px; margin-bottom: 10px; }
+  
+  input {
+    flex: 1; padding: 12px; border: none; border-radius: 10px;
+    background: var(--card-bg); color: var(--text-color); font-size: 1rem; outline: none;
+    backdrop-filter: blur(10px);
+  }
+  input::placeholder { color: var(--text-color); opacity: 0.6; }
+  
+  button {
+    padding: 12px 16px; border: none; border-radius: 10px;
+    background: var(--btn-bg); color: var(--btn-text); font-weight: 600; cursor: pointer;
+    transition: background 0.3s;
+  }
+  
+  .info {
+    background: var(--card-bg); padding: 12px; border-radius: 12px;
+    width: 100%; max-width: 500px; margin-bottom: 10px; text-align: center; font-size: 0.95rem;
+    backdrop-filter: blur(10px);
+  }
+  
+  .destinations-list {
+    width: 100%;
+    max-width: 500px;
+    margin-bottom: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .destination-item {
+    background: var(--card-bg);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: all 0.3s;
+    backdrop-filter: blur(10px);
+  }
+  
+  .destination-item.aligned {
+    box-shadow: 0 0 20px rgba(81, 207, 102, 0.6);
+    border: 2px solid #51cf66;
+  }
+  
+  .destination-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    cursor: pointer;
+    user-select: none;
+  }
+  
+  .destination-color-circle {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 0 0 8px rgba(0,0,0,0.3);
+    border: 2px solid rgba(255,255,255,0.2);
+  }
+  
+  .destination-info {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .destination-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .destination-item.expanded .destination-name {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+  
+  .destination-bearing {
+    font-size: 0.75rem;
+    opacity: 0.85;
+    font-weight: 500;
+  }
+  
+  .destination-details {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+  }
+  
+  .destination-item.expanded .destination-details {
+    max-height: 200px;
+  }
+  
+  .destination-details-content {
+    padding: 0 12px 12px 12px;
+    display: flex;
+    gap: 10px;
+    border-top: 1px solid var(--compass-border);
+    margin-top: 8px;
+    padding-top: 12px;
+  }
+  
+  .detail-btn {
+    flex: 1;
+    padding: 8px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    text-decoration: none;
+    transition: all 0.3s;
+  }
+  
+  .maps-btn {
+    background: var(--card-bg);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+  }
+  .maps-btn:hover { background: var(--accent); color: var(--btn-text); }
+  
+  .delete-btn {
+    background: var(--card-bg);
+    border: 1px solid var(--warn-bg);
+    color: var(--warn-bg);
+  }
+  .delete-btn:hover { background: var(--warn-bg); color: #fff; }
+  
+  .compass-container {
+    position: relative;
+    width: 320px;
+    height: 320px;
+    margin: 15px 0;
+  }
+  
+  .heading-marker {
+    position: absolute;
+    top: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 12px solid transparent;
+    border-right: 12px solid transparent;
+    border-top: 20px solid var(--accent);
+    z-index: 10;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+  }
+  
+  .compass {
+    width: 100%; height: 100%; border-radius: 50%;
+    background: var(--compass-bg);
+    border: 4px solid var(--compass-border);
+    position: relative;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    transition: background 0.3s, border-color 0.3s;
+  }
+  
+  .degree-mark {
+    position: absolute;
+    top: 50%; left: 50%;
+    font-size: 0.7rem; font-weight: 600;
+    color: var(--degree-color);
+    transform-origin: 50% 135px;
+    transition: color 0.3s;
+  }
+  
+  .cardinal {
+    position: absolute;
+    top: 50%; left: 50%;
+    font-weight: 700; font-size: 1rem;
+    transform-origin: 50% 115px;
+    transition: color 0.3s;
+  }
+  .cardinal.n { color: var(--cardinal-n); font-size: 1.2rem; }
+  .cardinal.s { color: var(--cardinal-s); }
+  
+  .target-arrow {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 6px; height: 120px;
+    transform-origin: 50% 100%;
+    transform: translate(-50%, -100%) rotate(0deg);
+    border-radius: 3px;
+    z-index: 5;
+  }
+  
+  .target-arrow::before {
+    content: "";
+    position: absolute;
+    top: -10px; left: 50%;
+    transform: translateX(-50%);
+    border-left: 12px solid transparent;
+    border-right: 12px solid transparent;
+  }
+  
+  /* Display de grados en el centro - FUERA del compass para que no rote */
+  .heading-display {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--accent);
+    text-shadow: 0 0 10px var(--accent-glow);
+    z-index: 20; /* Por encima de todo */
+    font-family: 'Courier New', monospace;
+    letter-spacing: -1px;
+    transition: color 0.3s, text-shadow 0.3s;
+    pointer-events: none; /* No interfiere con clicks */
+    background: rgba(0,0,0,0.3); /* Pequeño fondo para legibilidad */
+    padding: 4px 10px;
+    border-radius: 8px;
+    backdrop-filter: blur(4px);
+  }
+  
+  .settings-panel {
+    width: 100%;
+    max-width: 500px;
+    margin-top: 15px;
+    background: var(--card-bg);
+    border: 1px solid var(--compass-border);
+    border-radius: 10px;
+    overflow: hidden;
+    backdrop-filter: blur(10px);
+  }
+  
+  .settings-toggle {
+    width: 100%;
+    padding: 12px;
+    background: transparent;
+    border: none;
+    color: var(--text-color);
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.3s;
+  }
+  .settings-toggle:hover { background: rgba(255,255,255,0.05); }
+  
+  .settings-toggle .arrow {
+    transition: transform 0.3s;
+    font-size: 0.8rem;
+  }
+  .settings-panel.open .settings-toggle .arrow {
+    transform: rotate(180deg);
+  }
+  
+  .settings-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease;
+  }
+  .settings-panel.open .settings-content {
+    max-height: 800px;
+  }
+  
+  .settings-inner {
+    padding: 0 12px 12px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .settings-section {
+    border-top: 1px solid var(--compass-border);
+    padding-top: 12px;
+  }
+  .settings-section:first-child {
+    border-top: none;
+    padding-top: 0;
+  }
+  
+  .settings-section-title {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.7;
+    margin-bottom: 8px;
+  }
+  
+  .calibration-buttons {
+    display: flex;
+    gap: 10px;
+  }
+  
+  .calibration-btn {
+    flex: 1;
+    padding: 10px;
+    background: var(--card-bg);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+  .calibration-btn:hover { background: var(--accent); color: var(--btn-text); }
+  
+  .reset-btn {
+    flex: 0 0 auto;
+    padding: 10px 15px;
+    background: var(--card-bg);
+    border: 1px solid var(--compass-border);
+    color: var(--text-color);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    opacity: 0.8;
+  }
+  .reset-btn:hover { opacity: 1; background: var(--warn-bg); color: #fff; border-color: var(--warn-bg); }
+  
+  .haptic-toggle {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--card-bg);
+    border: 1px solid var(--compass-border);
+    color: var(--text-color);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+  
+  .haptic-switch {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 12px;
+    transition: background 0.3s;
+    flex-shrink: 0;
+  }
+  
+  .haptic-switch::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    background: var(--accent);
+    border-radius: 50%;
+    transition: transform 0.3s;
+  }
+  
+  .haptic-switch.active {
+    background: #51cf66;
+  }
+  
+  .haptic-switch.active::after {
+    transform: translateX(20px);
+  }
+  
+  .debug-toggle {
+    width: 100%;
+    padding: 10px;
+    background: var(--card-bg);
+    border: 1px solid var(--compass-border);
+    color: var(--text-color);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    opacity: 0.8;
+  }
+  .debug-toggle:hover { opacity: 1; background: var(--accent); color: var(--btn-text); }
+  
+  .debug {
+    background: var(--debug-bg);
+    padding: 12px;
+    border-radius: 8px;
+    font-family: monospace;
+    font-size: 0.75rem;
+    line-height: 1.6;
+    transition: background 0.3s;
+    display: none;
+    margin-top: 10px;
+  }
+  .debug.open { display: block; }
+  
+  .debug-controls {
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--compass-border);
+    margin-bottom: 8px;
+  }
+  .debug-controls label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  .debug-controls input[type="checkbox"] {
+    accent-color: var(--accent);
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+  }
+  
+  .debug span.ok { color: #51cf66; }
+  .debug span.err { color: #ff6b6b; }
+  .debug span.warn { color: #ffd43b; }
+  
+  .btn-perm {
+    display: block; width: 100%; max-width: 500px; margin-bottom: 10px;
+    background: var(--btn-perm-bg); padding: 14px; font-size: 1rem;
+    border: none; border-radius: 10px; color: #fff; font-weight: 600; cursor: pointer;
+    transition: background 0.3s;
+  }
+</style>
+</head>
+<body>
+
+  <div class="header-row">
+    <h1>🧭 Brújula</h1>
+    <div class="mode-switch">
+      <label for="modeToggle">☀️</label>
+      <div class="switch" id="modeToggle"></div>
+      <label for="modeToggle">🌙</label>
+    </div>
+  </div>
+
+  <div class="warn" id="warn"></div>
+
+  <div class="search">
+    <input id="destino" type="text" placeholder="Añadir destino (máx. 3)" />
+    <button id="btn">+ Añadir</button>
+  </div>
+
+  <div class="destinations-list" id="destinationsList"></div>
+
+  <button class="btn-perm" id="btnPerm" style="display:none;">
+    📱 Activar brújula (toca aquí)
+  </button>
+
+  <div class="info" id="info">
+    <p>Añade hasta 3 destinos para comenzar.</p>
+  </div>
+
+  <div class="compass-container">
+    <div class="heading-marker"></div>
+    <div class="compass" id="compass">
+      <!-- Las flechas de destino van DENTRO del compass para que roten con él -->
+    </div>
+    <!-- Display de grados FUERA del compass para que permanezca estático -->
+    <div class="heading-display" id="headingDisplay">--°</div>
+  </div>
+
+  <div class="settings-panel" id="settingsPanel">
+    <button class="settings-toggle" id="settingsToggle">
+      <span>⚙️ Opciones</span>
+      <span class="arrow">▼</span>
+    </button>
+    <div class="settings-content">
+      <div class="settings-inner">
+        
+        <div class="settings-section">
+          <div class="settings-section-title">Calibración de brújula</div>
+          <div class="calibration-buttons">
+            <button class="calibration-btn" id="calibrateBtn">🎯 Calibrar</button>
+            <button class="reset-btn" id="resetBtn">🗑️ Borrar</button>
+          </div>
+        </div>
+        
+        <div class="settings-section">
+          <div class="settings-section-title">Feedback háptico</div>
+          <div class="haptic-toggle" id="hapticToggle">
+            <span>📳 Vibrar al alinear con destino</span>
+            <div class="haptic-switch" id="hapticSwitch"></div>
+          </div>
+        </div>
+        
+        <div class="settings-section">
+          <div class="settings-section-title">Diagnóstico</div>
+          <button class="debug-toggle" id="debugToggle">🔧 Mostrar diagnóstico</button>
+          <div class="debug" id="debug">
+            <div class="debug-controls">
+              <label>
+                <input type="checkbox" id="showCoords" />
+                <span>Mostrar mi ubicación exacta</span>
+              </label>
+            </div>
+            <div id="debugContent">Iniciando...</div>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+  </div>
+
+<script>
+const $ = id => document.getElementById(id);
+const compass = $("compass");
+const headingDisplay = $("headingDisplay");
+const info = $("info");
+const debug = $("debug");
+const debugContent = $("debugContent");
+const debugToggle = $("debugToggle");
+const showCoords = $("showCoords");
+const warn = $("warn");
+const btnPerm = $("btnPerm");
+const modeToggle = $("modeToggle");
+const calibrateBtn = $("calibrateBtn");
+const resetBtn = $("resetBtn");
+const destinationsList = $("destinationsList");
+const hapticToggle = $("hapticToggle");
+const hapticSwitch = $("hapticSwitch");
+const settingsPanel = $("settingsPanel");
+const settingsToggle = $("settingsToggle");
+
+let userLat = null, userLon = null;
+let destinations = JSON.parse(localStorage.getItem('destinations')) || [];
+let rawHeading = null;
+let smoothHeading = null;
+let hasCompass = false;
+let renderHeading = 0;
+let calibrationOffset = parseFloat(localStorage.getItem('calibrationOffset')) || 0;
+let magneticDeclination = 0;
+const alpha = 0.02;
+const ALIGNMENT_THRESHOLD = 5;
+let hapticEnabled = localStorage.getItem('hapticEnabled') !== 'false';
+let destinationAligned = [];
+
+const DESTINATION_COLORS = ['#ff6b6b', '#4ecdc4', '#ffe66d'];
+const VIBRATION_PATTERNS = [
+  [100],
+  [100, 50, 100],
+  [100, 50, 100, 50, 100]
+];
+
+const nightMode = localStorage.getItem('nightMode') === 'true';
+if (nightMode) {
+  document.body.classList.add('night-mode');
+  modeToggle.classList.add('active');
+}
+
+if (hapticEnabled) {
+  hapticSwitch.classList.add('active');
+}
+
+modeToggle.onclick = () => {
+  document.body.classList.toggle('night-mode');
+  modeToggle.classList.toggle('active');
+  localStorage.setItem('nightMode', document.body.classList.contains('night-mode'));
+};
+
+settingsToggle.onclick = () => {
+  settingsPanel.classList.toggle('open');
+};
+
+hapticToggle.onclick = () => {
+  hapticEnabled = !hapticEnabled;
+  hapticSwitch.classList.toggle('active');
+  localStorage.setItem('hapticEnabled', hapticEnabled);
+  
+  if (hapticEnabled && navigator.vibrate) {
+    navigator.vibrate(50);
+  }
+};
+
+debugToggle.onclick = () => {
+  debug.classList.toggle('open');
+  debugToggle.textContent = debug.classList.contains('open') ? '🔧 Ocultar diagnóstico' : '🔧 Mostrar diagnóstico';
+};
+
+const showCoordsPref = localStorage.getItem('showCoords') === 'true';
+if (showCoordsPref) {
+  showCoords.checked = true;
+}
+
+showCoords.onchange = () => {
+  localStorage.setItem('showCoords', showCoords.checked);
+  renderDiag();
+};
+
+calibrateBtn.onclick = () => {
+  if (smoothHeading === null) {
+    showWarn("❌ La brújula no está activa. Actívala primero.");
+    return;
+  }
+  calibrationOffset = (360 - smoothHeading) % 360;
+  localStorage.setItem('calibrationOffset', calibrationOffset);
+  showWarn("✅ Brújula calibrada. Offset: " + calibrationOffset.toFixed(1) + "°");
+  setTimeout(() => { warn.style.display = "none"; }, 3000);
+};
+
+resetBtn.onclick = () => {
+  if (calibrationOffset === 0) {
+    showWarn("ℹ️ No hay calibración que borrar.");
+    setTimeout(() => { warn.style.display = "none"; }, 2000);
+    return;
+  }
+  calibrationOffset = 0;
+  localStorage.removeItem('calibrationOffset');
+  showWarn("🗑️ Calibración borrada. Offset reseteado a 0°");
+  setTimeout(() => { warn.style.display = "none"; }, 3000);
+  renderDiag();
+};
+
+const cardinals = [
+  { dir: 'N', angle: 0, color: 'n' },
+  { dir: 'NE', angle: 45 },
+  { dir: 'E', angle: 90 },
+  { dir: 'SE', angle: 135 },
+  { dir: 'S', angle: 180, color: 's' },
+  { dir: 'SW', angle: 225 },
+  { dir: 'W', angle: 270 },
+  { dir: 'NW', angle: 315 }
+];
+
+function buildCompass() {
+  for (let i = 0; i < 360; i += 30) {
+    const mark = document.createElement("div");
+    mark.className = "degree-mark";
+    mark.textContent = i + "°";
+    mark.style.transform = `translate(-50%, -135px) rotate(${i}deg)`;
+    if (i % 90 === 0) {
+      mark.style.color = "var(--accent)";
+      mark.style.fontWeight = "700";
+      mark.style.fontSize = "0.85rem";
+    }
+    compass.appendChild(mark);
+  }
+  
+  cardinals.forEach(c => {
+    const el = document.createElement("div");
+    el.className = "cardinal" + (c.color ? " " + c.color : "");
+    el.textContent = c.dir;
+    el.style.transform = `translate(-50%, -115px) rotate(${c.angle}deg)`;
+    compass.appendChild(el);
+  });
+}
+
+buildCompass();
+
+function saveDestinations() {
+  localStorage.setItem('destinations', JSON.stringify(destinations));
+}
+
+function renderDestinations() {
+  destinationsList.innerHTML = '';
+  
+  destinations.forEach((dest, index) => {
+    const item = document.createElement('div');
+    item.className = 'destination-item';
+    item.dataset.index = index;
+    
+    const bearing = userLat !== null ? calculateBearing(userLat, userLon, dest.lat, dest.lon) : null;
+    const dist = userLat !== null ? distance(userLat, userLon, dest.lat, dest.lon) : null;
+    
+    const bearingText = bearing !== null ? `${bearing.toFixed(0)}° ${getCardinal(bearing)}` : 'Calculando...';
+    const distText = dist !== null ? `${dist.toFixed(1)} km` : '';
+    
+    item.innerHTML = `
+      <div class="destination-header">
+        <div class="destination-color-circle" style="background: ${dest.color}"></div>
+        <div class="destination-info">
+          <div class="destination-name">${dest.name}</div>
+          <div class="destination-bearing" style="color: ${dest.color}">${bearingText}${distText ? ' · ' + distText : ''}</div>
+        </div>
+      </div>
+      <div class="destination-details">
+        <div class="destination-details-content">
+          <a href="https://www.google.com/maps?q=${dest.lat},${dest.lon}" target="_blank" class="detail-btn maps-btn">
+            🗺️ Ver en mapa
+          </a>
+          <button class="detail-btn delete-btn" onclick="deleteDestination(${index})">
+            🗑️ Eliminar
+          </button>
+        </div>
+      </div>
+    `;
+    
+    item.querySelector('.destination-header').onclick = () => {
+      item.classList.toggle('expanded');
+    };
+    
+    destinationsList.appendChild(item);
+  });
+  
+  renderCompassArrows();
+  updateInfo();
+}
+
+function deleteDestination(index) {
+  destinations.splice(index, 1);
+  destinationAligned.splice(index, 1);
+  saveDestinations();
+  renderDestinations();
+  showWarn("✅ Destino eliminado");
+  setTimeout(() => { warn.style.display = "none"; }, 2000);
+}
+
+window.deleteDestination = deleteDestination;
+
+function renderCompassArrows() {
+  compass.querySelectorAll('.target-arrow').forEach(el => el.remove());
+  document.querySelectorAll('.arrow-style').forEach(el => el.remove());
+  
+  destinations.forEach((dest, index) => {
+    const arrow = document.createElement('div');
+    arrow.className = 'target-arrow';
+    arrow.id = `arrow-${index}`;
+    arrow.style.background = `linear-gradient(to top, transparent 0%, ${dest.color}80 40%, ${dest.color} 100%)`;
+    arrow.style.boxShadow = `0 0 15px ${dest.color}80`;
+    
+    const style = document.createElement('style');
+    style.className = 'arrow-style';
+    style.textContent = `#arrow-${index}::before { border-bottom: 20px solid ${dest.color}; }`;
+    document.head.appendChild(style);
+    
+    compass.appendChild(arrow);
+  });
+}
+
+const toRad = d => d * Math.PI / 180;
+const toDeg = r => r * 180 / Math.PI;
+
+function calculateBearing(lat1, lon1, lat2, lon2) {
+  const φ1 = toRad(lat1), φ2 = toRad(lat2);
+  const Δλ = toRad(lon2 - lon1);
+  const y = Math.sin(Δλ) * Math.cos(φ2);
+  const x = Math.cos(φ1)*Math.sin(φ2) - Math.sin(φ1)*Math.cos(φ2)*Math.cos(Δλ);
+  return (toDeg(Math.atan2(y, x)) + 360) % 360;
+}
+
+function distance(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const φ1 = toRad(lat1), φ2 = toRad(lat2);
+  const Δφ = toRad(lat2 - lat1);
+  const Δλ = toRad(lon2 - lon1);
+  const a = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+function getCardinal(b) {
+  return cardinals[Math.round(b / 45) % 8].dir;
+}
+
+function updateInfo() {
+  if (destinations.length === 0) {
+    info.innerHTML = `<p>Añade hasta 3 destinos para comenzar.</p>`;
+    info.style.display = 'block';
+    return;
+  }
+  
+  if (userLat === null) {
+    info.innerHTML = `<p>Obteniendo tu ubicación...</p>`;
+    info.style.display = 'block';
+    return;
+  }
+  
+  info.innerHTML = '';
+  info.style.display = 'none';
+}
+
+const diag = {
+  https: location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1",
+  geo: !!navigator.geolocation,
+  orient: "DeviceOrientationEvent" in window,
+  needPermIOS: typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function",
+  geoOk: false,
+  orientOk: false,
+  usingAbsolute: false,
+  hasReceivedAbsolute: false,
+  lastRawAlpha: null,
+  ignoredRelative: 0
+};
+
+function renderDiag() {
+  const s = (ok, txt) => `<span class="${ok?'ok':'err'}">${txt}</span>`;
+  const trueHeading = smoothHeading !== null ? (smoothHeading + calibrationOffset + magneticDeclination + 360) % 360 : null;
+  
+  const userCoords = showCoords.checked && userLat !== null
+    ? s(true, `${userLat.toFixed(4)}, ${userLon.toFixed(4)}`)
+    : 'Ocultas por privacidad';
+  
+  debugContent.innerHTML = `
+    <div>🔒 HTTPS: ${diag.https ? s(true,'SÍ') : s(false,'NO')}</div>
+    <div>📍 Mi ubicación: ${userCoords}</div>
+    <div>🧭 Sensor: ${diag.orientOk ? s(true, diag.usingAbsolute ? 'ABSOLUTO (Invertido)' : 'RELATIVO (fallback)') : s(false,'NO')}</div>
+    <div>📊 Absolutos recibidos: ${diag.hasReceivedAbsolute ? s(true,'SÍ') : s(false,'NO')}</div>
+    <div>🚫 Relativos ignorados: ${diag.ignoredRelative}</div>
+    <div>📱 RAW (alpha): ${diag.lastRawAlpha !== null ? s('warn', diag.lastRawAlpha.toFixed(1) + '°') : '-'}</div>
+    <div>🧭 RAW corregido: ${rawHeading !== null ? s(true, rawHeading.toFixed(1) + '°') : '-'}</div>
+    <div>🧭 Suavizado: ${smoothHeading !== null ? smoothHeading.toFixed(1) + '°' : '-'}</div>
+    <div>🧭 Declinación: ${magneticDeclination.toFixed(1)}°</div>
+    <div>🧭 Offset calibración: ${calibrationOffset.toFixed(1)}°</div>
+    <div>🧭 Heading verdadero: ${trueHeading !== null ? s(true, trueHeading.toFixed(1) + '°') : '-'}</div>
+    <div>🎯 Destinos: ${destinations.length}/3</div>
+    <div>📳 Vibración: ${hapticEnabled ? s(true,'ACTIVADA') : s(false,'DESACTIVADA')}</div>
+  `;
+}
+
+function showWarn(msg) { warn.textContent = msg; warn.style.display = "block"; }
+
+function calculateMagneticDeclination(lat, lon) {
+  const latRad = lat * Math.PI / 180;
+  const lonRad = lon * Math.PI / 180;
+  const poleLat = 86.5 * Math.PI / 180;
+  const poleLon = -164 * Math.PI / 180;
+  const dLon = lonRad - poleLon;
+  const declination = Math.atan2(
+    Math.sin(dLon),
+    Math.cos(latRad) * Math.tan(poleLat) - Math.sin(latRad) * Math.cos(dLon)
+  ) * 180 / Math.PI;
+  return declination;
+}
+
+function getUserLocation() {
+  if (!navigator.geolocation) { showWarn("❌ Navegador sin geolocalización."); return; }
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      userLat = pos.coords.latitude; userLon = pos.coords.longitude;
+      diag.geoOk = true;
+      magneticDeclination = calculateMagneticDeclination(userLat, userLon);
+      renderDiag();
+      renderDestinations();
+    },
+    err => showWarn("❌ Error GPS: " + err.message),
+    { enableHighAccuracy: true, timeout: 15000 }
+  );
+}
+
+function filterCircular(prev, next, a) {
+  if (prev === null) return next;
+  let diff = next - prev;
+  while (diff > 180) diff -= 360;
+  while (diff < -180) diff += 360;
+  return (prev + a * diff + 360) % 360;
+}
+
+function handleOrientation(e, isAbsoluteEvent) {
+  let h = null;
+  
+  if (e.webkitCompassHeading !== undefined) {
+    h = e.webkitCompassHeading;
+    diag.lastRawAlpha = e.webkitCompassHeading;
+    diag.usingAbsolute = true;
+    diag.hasReceivedAbsolute = true;
+  } else if (isAbsoluteEvent && e.alpha !== null) {
+    h = (360 - e.alpha) % 360;
+    diag.lastRawAlpha = e.alpha;
+    diag.usingAbsolute = true;
+    diag.hasReceivedAbsolute = true;
+  } else if (!isAbsoluteEvent && e.alpha !== null) {
+    if (!diag.hasReceivedAbsolute) {
+      h = (360 - e.alpha) % 360;
+      diag.lastRawAlpha = e.alpha;
+      diag.usingAbsolute = false;
+    } else {
+      diag.ignoredRelative++;
+      return;
+    }
+  }
+  
+  if (h !== null && !isNaN(h)) {
+    rawHeading = h;
+    smoothHeading = filterCircular(smoothHeading, h, alpha);
+    hasCompass = true;
+    diag.orientOk = true;
+    renderDiag();
+  }
+}
+
+async function pedirPermisoIOS() {
+  try {
+    const perm = await DeviceOrientationEvent.requestPermission();
+    if (perm === "granted") {
+      attachOrientation();
+      btnPerm.style.display = "none";
+    } else showWarn("Permiso denegado.");
+  } catch(e) { showWarn("Error: " + e.message); }
+}
+
+function attachOrientation() {
+  window.addEventListener("deviceorientationabsolute", (e) => handleOrientation(e, true), true);
+  window.addEventListener("deviceorientation", (e) => handleOrientation(e, false), true);
+}
+
+function initOrientation() {
+  if (!diag.orient) { showWarn("⚠️ Sin brújula en este dispositivo."); renderDiag(); return; }
+  if (diag.needPermIOS) {
+    btnPerm.style.display = "block";
+    btnPerm.onclick = pedirPermisoIOS;
+  } else {
+    attachOrientation();
+  }
+  renderDiag();
+}
+
+function checkAlignment(trueHeading) {
+  if (!hapticEnabled || !navigator.vibrate) return;
+  
+  destinations.forEach((dest, index) => {
+    const bearing = calculateBearing(userLat, userLon, dest.lat, dest.lon);
+    
+    let diff = Math.abs(trueHeading - bearing);
+    if (diff > 180) diff = 360 - diff;
+    
+    const isAligned = diff <= ALIGNMENT_THRESHOLD;
+    const wasAligned = destinationAligned[index] || false;
+    
+    if (isAligned && !wasAligned) {
+      navigator.vibrate(VIBRATION_PATTERNS[index] || [100]);
+      destinationAligned[index] = true;
+      
+      const item = destinationsList.children[index];
+      if (item) item.classList.add('aligned');
+    } else if (!isAligned && wasAligned) {
+      destinationAligned[index] = false;
+      
+      const item = destinationsList.children[index];
+      if (item) item.classList.remove('aligned');
+    }
+  });
+}
+
+function renderLoop() {
+  if (hasCompass && smoothHeading !== null) {
+    const trueHeading = (smoothHeading + calibrationOffset + magneticDeclination + 360) % 360;
+    
+    let diff = trueHeading - renderHeading;
+    while (diff > 180) diff -= 360;
+    while (diff < -180) diff += 360;
+    renderHeading = (renderHeading + diff * 0.3 + 360) % 360;
+
+    compass.style.transform = `rotate(${-renderHeading}deg)`;
+    
+    // Actualizar display de grados en el centro (estático, no rota)
+    headingDisplay.textContent = `${Math.round(trueHeading)}°`;
+    
+    destinations.forEach((dest, index) => {
+      if (userLat !== null) {
+        const bearing = calculateBearing(userLat, userLon, dest.lat, dest.lon);
+        const arrow = $(`arrow-${index}`);
+        if (arrow) {
+          arrow.style.transform = `translate(-50%, -100%) rotate(${bearing}deg)`;
+        }
+      }
+    });
+    
+    if (userLat !== null) {
+      checkAlignment(trueHeading);
+    }
+  } else if (destinations.length > 0 && userLat !== null) {
+    compass.style.transform = "rotate(0deg)";
+    
+    destinations.forEach((dest, index) => {
+      const bearing = calculateBearing(userLat, userLon, dest.lat, dest.lon);
+      const arrow = $(`arrow-${index}`);
+      if (arrow) {
+        arrow.style.transform = `translate(-50%, -100%) rotate(${bearing}deg)`;
+      }
+    });
+  }
+  requestAnimationFrame(renderLoop);
+}
+
+async function geocode(query) {
+  const m = query.match(/^\s*(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)\s*$/);
+  if (m) return { lat: +m[1], lon: +m[2], name: `${m[1]}, ${m[2]}` };
+  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`;
+  const res = await fetch(url, { headers: { "Accept-Language": "es" } });
+  const data = await res.json();
+  if (!data.length) throw new Error("Destino no encontrado");
+  return {
+    lat: +data[0].lat, lon: +data[0].lon,
+    name: data[0].display_name.split(",").slice(0,3).join(",")
+  };
+}
+
+async function addDestination() {
+  const q = $("destino").value.trim();
+  if (!q) return;
+  
+  if (destinations.length >= 3) {
+    showWarn("❌ Máximo 3 destinos. Elimina uno primero.");
+    setTimeout(() => { warn.style.display = "none"; }, 3000);
+    return;
+  }
+  
+  try {
+    const r = await geocode(q);
+    
+    const exists = destinations.some(d => d.lat === r.lat && d.lon === r.lon);
+    if (exists) {
+      showWarn("⚠️ Este destino ya está en la lista.");
+      setTimeout(() => { warn.style.display = "none"; }, 3000);
+      return;
+    }
+    
+    const color = DESTINATION_COLORS[destinations.length];
+    
+    destinations.push({
+      name: r.name,
+      lat: r.lat,
+      lon: r.lon,
+      color: color
+    });
+    
+    destinationAligned.push(false);
+    saveDestinations();
+    renderDestinations();
+    info.style.display = 'block';
+    $("destino").value = '';
+    showWarn(`✅ ${r.name} añadido`);
+    setTimeout(() => { warn.style.display = "none"; }, 2000);
+  } catch (e) {
+    showWarn("❌ " + e.message);
+  }
+}
+
+$("btn").onclick = addDestination;
+$("destino").onkeydown = e => { if (e.key === "Enter") addDestination(); };
+
+if (!diag.https) showWarn("⚠️ Abre por HTTPS o localhost. GPS y brújula bloqueados.");
+renderDiag();
+getUserLocation();
+initOrientation();
+renderDestinations();
+requestAnimationFrame(renderLoop);
+
+navigator.geolocation?.watchPosition?.(pos => {
+  userLat = pos.coords.latitude; userLon = pos.coords.longitude;
+  diag.geoOk = true;
+  magneticDeclination = calculateMagneticDeclination(userLat, userLon);
+  renderDiag();
+  renderDestinations();
+}, () => {}, { enableHighAccuracy: true });
+</script>
+</body>
+</html>
